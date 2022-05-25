@@ -1,6 +1,5 @@
-using CsvHelper;
-using System.Data.SQLite;
-using System.Globalization;
+using ExcelDataReader;
+using System.Text;
 
 namespace AutomatycznySorter
 {
@@ -15,63 +14,52 @@ namespace AutomatycznySorter
         {
             //start SZZSort method
             SZZSort();
-            
         }
 
         private void SZZSort()
         {
-            string folderLocation = textBox1.Text;
-
-            //Start readers
-            var reader = new StreamReader(folderLocation + "\\" + "file.csv");
-            var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-            //get the all usernames from the first row
-            var usernames = csv.GetRecords<string>();
-
-            //Create a new SQLite connection
-            SQLiteConnection m_dbConnection = new SQLiteConnection("Data Source=database.mdf;Version=3;");
-            m_dbConnection.Open();
-
-            //find the folder location of the user in database.mdf
-            foreach (var username in usernames)
+            var startTimeSpan = TimeSpan.Zero;
+            var periodTimeSpan = TimeSpan.FromMinutes(1);
+            //if file doesnt exist, do nothing and wait for file to be created
+            if (!File.Exists(@"C:\Users\Mkzz\Desktop\doki\AutoAssigment.csv"))
             {
-                string sql = "SELECT FolderLocation FROM Workers WHERE Username = '" + username + "'";
-                SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-                SQLiteDataReader reader2 = command.ExecuteReader();
-                while (reader2.Read())
-                {
-                    string folderLocation2 = reader2["FolderLocation"].ToString();
-                }
+                Thread.Sleep(1000);
             }
-            //Rest rows of the CSV file are case names. Move all files into the user folder that contain the case name in their name.
-            foreach (var username in usernames)
+            //repeat below code every 5 minutes
+            if (File.Exists(@"C:\Users\Mkzz\Desktop\doki\AutoAssigment.csv"))
             {
-                string sql = "SELECT FolderLocation FROM Workers WHERE Username = '" + username + "'";
-                SQLiteCommand command = new SQLiteCommand(sql, m_dbConnection);
-                SQLiteDataReader reader2 = command.ExecuteReader();
-                while (reader2.Read())
+                var timer = new System.Threading.Timer((e) =>
                 {
-                    string folderLocation2 = reader2["FolderLocation"].ToString();
-                    string[] files = System.IO.Directory.GetFiles(folderLocation + "\\" + username);
-                    foreach (var file in files)
+                    //save every column of spreadsheet into separate text files in same folder
+                    Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                    string filePath1 = @"C:\Users\Mkzz\Desktop\doki\AutoAssigment.csv";
+                    using (var stream = File.Open(filePath1, FileMode.Open, FileAccess.Read))
                     {
-                        string fileName = System.IO.Path.GetFileName(file);
-                        if (fileName.Contains(username))
+                        using (var reader = ExcelReaderFactory.CreateCsvReader(stream))
                         {
-                            System.IO.File.Move(file, folderLocation2 + "\\" + fileName);
+                            //every column of spreadsheet is saved into separate text file. Like column 1 is file1, column 2 is file2 etc.
+                            while (reader.Read())
+                            {
+                                string filePath2 = @"C:\Users\Mkzz\Desktop\doki\AutoAssigment" + reader.GetValue(0) + ".txt";
+                                using (StreamWriter sw = new StreamWriter(filePath2))
+                                {
+                                    for (int i = 0; i < reader.FieldCount; i++)
+                                    {
+                                        sw.WriteLine(reader.GetValue(i));
+                                    }
+                                }
+                            }
                         }
                     }
-                }
+                }, null, startTimeSpan, periodTimeSpan);
             }
-            //Close the connection
-            m_dbConnection.Close();
         }
-        
+
         private void WAWSort()
         {
             
         }
-        
+
         private void POZSort()
         {
             
